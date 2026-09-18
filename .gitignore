@@ -1,0 +1,75 @@
+# Database credentials
+.env
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated datasets
+data/generated/
+data/rejected/
+
+# Power BI temporary files
+*.pbit.lock
+~$*.pbix
+
+# Tableau temporary files
+*.tmp
+
+# Editor files
+.vscode/
+.idea/
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Database exports and backups
+backups/
+database_exports/
+*.dump
+*.backup
+*.bak
+*.sql.gz
+
+# PostgreSQL files and backups
+pgdata/
+postgres-data/
+backups/
+*.backup
+*.bak
+*.dump
+*.sql.gz
+
+# Locally exported datasets
+data/*.csv
+data/*.json
+data/*.parquet
+data/*.xlsx
+!data/.gitkeep
+
+# Power BI temporary files
+~$*.pbix
+*.pbix.tmp
+
+# Tableau temporary or separate extract files
+*.hyper
+*.twbr
+*.tfl
