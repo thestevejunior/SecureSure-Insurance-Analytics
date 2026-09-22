@@ -1,0 +1,45 @@
+name: Cloud Data Quality Checks
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 15 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: securesure-data-quality
+  cancel-in-progress: false
+
+jobs:
+  run-data-quality-checks:
+    name: Run PostgreSQL quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DATABASE_ENV: cloud
+      CLOUD_DB_HOST: ${{ secrets.CLOUD_DB_HOST }}
+      CLOUD_DB_PORT: "5432"
+      CLOUD_DB_NAME: securesure
+      CLOUD_DB_USER: ${{ secrets.CLOUD_DB_USER }}
+      CLOUD_DB_PASSWORD: ${{ secrets.CLOUD_DB_PASSWORD }}
+      CLOUD_DB_SSLMODE: require
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run cloud data quality checks
+        run: python pipeline/run_data_quality_checks.py

@@ -1,92 +1,67 @@
-"""PostgreSQL connection utilities for SecureSure."""
-
 import os
-from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENV_FILE = PROJECT_ROOT / ".env"
+load_dotenv()
 
-load_dotenv(ENV_FILE)
+
+def get_database_config():
+    """
+    Return connection settings for either the local or cloud database.
+
+    Set DATABASE_ENV to:
+    - local: use DB_* environment variables
+    - cloud: use CLOUD_DB_* environment variables
+    """
+
+    database_environment = os.getenv("DATABASE_ENV", "local").lower()
+
+    if database_environment == "cloud":
+        prefix = "CLOUD_DB_"
+    elif database_environment == "local":
+        prefix = "DB_"
+    else:
+        raise ValueError(
+            "DATABASE_ENV must be either 'local' or 'cloud'."
+        )
+
+    config = {
+        "host": os.getenv(f"{prefix}HOST"),
+        "port": os.getenv(f"{prefix}PORT", "5432"),
+        "dbname": os.getenv(f"{prefix}NAME"),
+        "user": os.getenv(f"{prefix}USER"),
+        "password": os.getenv(f"{prefix}PASSWORD"),
+    }
+
+    sslmode = os.getenv(f"{prefix}SSLMODE")
+
+    if sslmode:
+        config["sslmode"] = sslmode
+
+    missing_values = [
+        setting
+        for setting, value in config.items()
+        if value is None or value == ""
+    ]
+
+    if missing_values:
+        missing_text = ", ".join(missing_values)
+        raise ValueError(
+            f"Missing database configuration values: {missing_text}"
+        )
+
+    return config
 
 
 def get_connection():
-    """Create and return a PostgreSQL database connection."""
+    """Open and return a PostgreSQL database connection."""
 
-    required_variables = [
-        "DB_HOST",
-        "DB_PORT",
-        "DB_NAME",
-        "DB_USER",
-        "DB_PASSWORD",
-    ]
-
-    missing_variables = [
-        variable
-        for variable in required_variables
-        if not os.getenv(variable)
-    ]
-
-    if missing_variables:
-        missing = ", ".join(missing_variables)
-        raise RuntimeError(
-            f"Missing required environment variables: {missing}"
-        )
-
-    return psycopg.connect(
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-    )
+    return psycopg.connect(**get_database_config())
 
 
-def test_connection():
-    """Test the connection and retrieve basic database information."""
+def get_database_environment():
+    """Return the active database environment name."""
 
-    try:
-        with get_connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT
-                        current_database(),
-                        current_user,
-                        version();
-                    """
-                )
-                database_name, database_user, database_version = cursor.fetchone()
-
-                cursor.execute(
-                    "SELECT COUNT(*) FROM core.branches;"
-                )
-                branch_count = cursor.fetchone()[0]
-
-                cursor.execute(
-                    "SELECT COUNT(*) FROM core.products;"
-                )
-                product_count = cursor.fetchone()[0]
-
-        print("Database connection successful.")
-        print(f"Database: {database_name}")
-        print(f"User: {database_user}")
-        print(f"PostgreSQL: {database_version}")
-        print(f"Branches: {branch_count}")
-        print(f"Products: {product_count}")
-
-    except psycopg.Error as error:
-        print("Database connection failed.")
-        print(f"PostgreSQL error: {error}")
-        raise SystemExit(1) from error
-
-    except RuntimeError as error:
-        print(f"Configuration error: {error}")
-        raise SystemExit(1) from error
-
-
-if __name__ == "__main__":
-    test_connection()
+    return os.getenv("DATABASE_ENV", "local").lower()
