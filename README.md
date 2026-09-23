@@ -1,12 +1,14 @@
 # SecureSure Insurance Analytics Platform
 
+[![Cloud Data Quality Checks](https://github.com/thestevejunior/SecureSure-Insurance-Analytics/actions/workflows/data-quality.yml/badge.svg)](https://github.com/thestevejunior/SecureSure-Insurance-Analytics/actions/workflows/data-quality.yml)
+
 An end-to-end insurance analytics project that simulates how a data team builds, secures, tests, analyzes and presents company data using PostgreSQL, Python, Power BI and Tableau.
 
 The project uses completely synthetic data and does not contain real customer or company information.
 
 ## Project Overview
 
-SecureSure is an insurance company operating through 31 branches.
+SecureSure is a fictional insurance company operating through 31 branches.
 
 Management needs a centralized analytics platform to answer questions such as:
 
@@ -31,16 +33,18 @@ The platform simulates the work performed by data analysts, BI analysts, analyti
 | Tableau | Executive and claims operations dashboards |
 | Git and GitHub | Version control and project documentation |
 | PowerShell | Running database scripts and pipeline commands |
+| Neon | Managed cloud PostgreSQL deployment |
+| GitHub Actions | Scheduled cloud data-quality automation |
 
 ## Solution Architecture
 
 ```mermaid
 flowchart TD
-    A["Python Data Generation"] --> B["PostgreSQL Core Tables"]
-    B --> C["Analytics SQL Views"]
-    C --> D["Power BI Dashboards"]
-    C --> E["Tableau Dashboards"]
-    B --> F["Automated Data Quality Checks"]
+    A["Python Data Pipeline"] --> B["Neon Cloud PostgreSQL"]
+    B --> C["Core Insurance Tables"]
+    C --> D["Analytics Views"]
+    D --> E["Power BI and Tableau"]
+    A --> F["Automated Quality Checks"]
     F --> G["Audit Results"]
 ```
 
@@ -63,6 +67,23 @@ The database uses four schemas:
 | `core` | Validated operational insurance tables |
 | `analytics` | Reporting views consumed by BI tools |
 | `audit` | Pipeline runs and data-quality results |
+
+## Cloud Deployment
+
+The production-style database is deployed to Neon, a managed PostgreSQL platform.
+
+The cloud environment contains the same four-schema architecture used during local development:
+
+- `raw`
+- `core`
+- `analytics`
+- `audit`
+
+Power BI and Tableau connect to the cloud database using the restricted `dashboard_reader` role.
+
+The Python pipeline uses the database owner account only when an operation must write quality results to the `audit` schema.
+
+Connection credentials are stored in environment variables and encrypted GitHub repository secrets. They are never committed to the repository.
 
 ### Core Tables
 
@@ -181,6 +202,28 @@ Expected successful result:
 ```text
 16/16 data quality checks passed
 ```
+## Automated Monitoring
+
+The GitHub Actions workflow at `.github/workflows/data-quality.yml` runs the Python data-quality suite against the Neon cloud database.
+
+The workflow supports:
+
+- Daily scheduled execution
+- Manual execution from the GitHub Actions interface
+- Python dependency installation
+- Secure cloud authentication using repository secrets
+- Writing test results to the cloud `audit` schema
+- Visible pass or failure status on GitHub
+
+The workflow currently runs every day at `15:00 UTC`.
+
+Required GitHub Actions secrets:
+
+- `CLOUD_DB_HOST`
+- `CLOUD_DB_USER`
+- `CLOUD_DB_PASSWORD`
+
+The workflow never prints or stores the secret values in the repository.
 
 ## Database Security
 
@@ -202,6 +245,9 @@ The analytics views also avoid exposing direct customer names, email addresses, 
 
 ```text
 SecureSure-Insurance-Analytics/
+├── .github/
+│   └── workflows/
+│       └── data-quality.yml
 ├── analysis/
 ├── data/
 ├── database/
@@ -256,8 +302,6 @@ git clone https://github.com/thestevejunior/SecureSure-Insurance-Analytics.git
 cd SecureSure-Insurance-Analytics
 ```
 
-Replace `YOUR-USERNAME` with the correct GitHub username.
-
 ### 2. Create the PostgreSQL database
 
 ```powershell
@@ -290,6 +334,26 @@ Copy-Item .env.example .env
 Enter the local PostgreSQL credentials in `.env`.
 
 Never commit `.env` to GitHub.
+
+### Select the database environment
+
+The Python pipeline can run against either local PostgreSQL or Neon without changing the Python source code.
+
+For local execution:
+
+```powershell
+$env:DATABASE_ENV = "local"
+python pipeline/run_data_quality_checks.py
+```
+
+For cloud execution:
+
+```powershell
+$env:DATABASE_ENV = "cloud"
+python pipeline/run_data_quality_checks.py
+```
+
+Database credentials are loaded from environment variables through `pipeline/db_connection.py`.
 
 ### 5. Build the database
 
@@ -340,17 +404,18 @@ Use a secure local password. Do not place that password in the SQL file or commi
 
 ## BI Connection
 
-For local development, Power BI and Tableau connect using:
+Power BI and Tableau use the same restricted reporting account in both environments:
 
-| Setting | Value |
-|---|---|
-| Server | `localhost` |
-| Port | `5432` |
-| Database | `securesure` |
-| User | `dashboard_reader` |
-| Schema | `analytics` |
+| Setting | Local environment | Cloud environment |
+|---|---|---|
+| Server | `localhost` | Neon direct PostgreSQL endpoint |
+| Port | `5432` | `5432` |
+| Database | `securesure` | `securesure` |
+| User | `dashboard_reader` | `dashboard_reader` |
+| Schema | `analytics` | `analytics` |
+| SSL | Optional locally | Required in Neon |
 
-The password is intentionally excluded from this repository.
+The cloud hostname and passwords are intentionally excluded from this repository. Power BI and Tableau query only the approved analytics views; they cannot directly read sensitive core customer tables.
 
 ## Practical Company Simulation
 
@@ -365,7 +430,7 @@ This project reflects common company practices:
 - Large generated datasets and secrets are excluded from source control.
 - Business users consume interactive dashboards rather than raw database tables.
 
-In a real organization, PostgreSQL could be hosted on a private company server or a managed cloud service such as Amazon RDS, Azure Database for PostgreSQL or Google Cloud SQL.
+In this project, PostgreSQL is hosted locally for development and on Neon for the production-style cloud environment. A real organization might use a comparable managed platform such as Amazon RDS, Azure Database for PostgreSQL or Google Cloud SQL.
 
 ## Repository Safety
 
@@ -394,16 +459,21 @@ All visible business records are fictional and generated specifically for this p
 - Business KPI design
 - Git version control
 - Technical documentation
+- Managed cloud PostgreSQL deployment
+- Environment-based connection management
+- GitHub Actions automation
+- Database backup and cloud restoration
+- Role-based cloud database security
 
 ## Future Improvements
 
-- Deploy PostgreSQL to a managed cloud database
-- Schedule pipeline execution
-- Add automated GitHub Actions tests
-- Add incremental BI refresh
-- Add pipeline failure notifications
-- Add database migration tooling
-- Create a public portfolio summary page
+- Publish the Power BI report to Power BI Service
+- Configure Power BI Service scheduled dataset refresh
+- Publish the Tableau workbook to Tableau Cloud or Tableau Public
+- Add incremental synthetic transaction generation
+- Add email or Slack notifications for quality-check failures
+- Add formal database migration tooling
+- Add unit tests for the Python data generators
 
 ## Author
 
